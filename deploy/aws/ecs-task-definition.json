@@ -1,0 +1,81 @@
+{
+  "family": "enterprise-copilot-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "enterprise-copilot-app",
+      "image": "ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/agentic-copilot:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "hostPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "ENVIRONMENT", "value": "production" },
+        { "name": "GEMINI_MODEL_NAME", "value": "gemini-2.5-flash" },
+        { "name": "QDRANT_HOST", "value": "qdrant.internal" },
+        { "name": "QDRANT_PORT", "value": "6333" },
+        { "name": "REDIS_URL", "value": "redis://elasticache-redis.internal:6379/0" },
+        { "name": "REDIS_ENABLED", "value": "true" },
+        { "name": "GUARDRAILS_ENABLED", "value": "true" },
+        { "name": "JAEGER_ENABLED", "value": "true" },
+        { "name": "JAEGER_HOST", "value": "127.0.0.1" },
+        { "name": "JAEGER_PORT", "value": "4318" },
+        { "name": "JAEGER_ENDPOINT", "value": "http://127.0.0.1:4318/v1/traces" }
+      ],
+      "secrets": [
+        {
+          "name": "GEMINI_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:copilot/gemini-api-key"
+        },
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:ACCOUNT_ID:secret:copilot/rds-postgres-url"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/enterprise-copilot",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "app"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health || exit 1"],
+        "interval": 15,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      }
+    },
+    {
+      "name": "jaeger-collector",
+      "image": "jaegertracing/all-in-one:latest",
+      "essential": false,
+      "portMappings": [
+        { "containerPort": 16686, "hostPort": 16686, "protocol": "tcp" },
+        { "containerPort": 4318, "hostPort": 4318, "protocol": "tcp" }
+      ],
+      "environment": [
+        { "name": "COLLECTOR_OTLP_ENABLED", "value": "true" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/enterprise-copilot",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "jaeger"
+        }
+      }
+    }
+  ]
+}

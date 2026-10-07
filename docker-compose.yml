@@ -1,0 +1,114 @@
+services:
+  # ============================================================
+  # Fast-API Multi-Agent Copilot Service
+  # ============================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: enterprise_copilot_app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL_NAME=gemini-2.5-flash
+      - DATABASE_URL=postgresql://aegis_readonly:aegis_readonly_password@postgres:5432/aegisdb
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - QDRANT_COLLECTION=enterprise_documents
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_ENABLED=true
+      - CACHE_TTL_SECONDS=3600
+      - LANGSMITH_TRACING=${LANGSMITH_TRACING:-false}
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY:-}
+      - GUARDRAILS_ENABLED=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      redis:
+        condition: service_started
+    networks:
+      - copilot-network
+
+  # ============================================================
+  # Vector Database: Qdrant
+  # ============================================================
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: enterprise_copilot_qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - copilot-network
+
+  # ============================================================
+  # Relational Database: PostgreSQL
+  # ============================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: enterprise_copilot_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aegisdb
+      POSTGRES_USER: aegis_readonly
+      POSTGRES_PASSWORD: aegis_readonly_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aegis_readonly -d aegisdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - copilot-network
+
+  # ============================================================
+  # In-Memory Cache: Redis
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: enterprise_copilot_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - copilot-network
+
+  # ============================================================
+  # Distributed Tracing & Observability: Jaeger
+  # ============================================================
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: enterprise_copilot_jaeger
+    restart: unless-stopped
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686"   # Jaeger Web UI
+      - "4317:4317"     # OTLP gRPC receiver
+      - "4318:4318"     # OTLP HTTP receiver
+      - "6831:6831/udp" # Jaeger Thrift compact UDP
+    networks:
+      - copilot-network
+
+networks:
+  copilot-network:
+    driver: bridge
+
+volumes:
+  qdrant_data:
+  postgres_data:
+  redis_data:

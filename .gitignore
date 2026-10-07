@@ -1,0 +1,72 @@
+# ============================================================
+# Environment & Secrets (CRITICAL: Never commit API keys)
+# ============================================================
+.env
+*.env
+!.env.example
+
+# ============================================================
+# Python Virtual Environments
+# ============================================================
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# ============================================================
+# Python Bytecode & Cache
+# ============================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ============================================================
+# Testing & Coverage
+# ============================================================
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+nosetests.xml
+coverage.xml
+
+# ============================================================
+# Runtime Data & Local Databases
+# ============================================================
+data/qdrant_storage/
+data/processed/
+*.sqlite
+*.sqlite3
+*.db
+*.log
+
+# ============================================================
+# OS & IDE Configuration
+# ============================================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo

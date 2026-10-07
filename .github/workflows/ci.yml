@@ -1,0 +1,128 @@
+name: Production CI & Evaluation Regression Gate
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "app/**"
+      - "data/**"
+      - "tests/**"
+      - "scripts/**"
+      - "Dockerfile"
+      - "requirements.txt"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "app/**"
+      - "data/**"
+      - "tests/**"
+      - "scripts/**"
+      - "Dockerfile"
+      - "requirements.txt"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================================
+  # Unit & Integration Tests
+  # ============================================================
+  unit-tests:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Pytest Suite
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'test-key' }}
+          QDRANT_PREFER_MEMORY: "true"
+          REDIS_URL: "redis://localhost:6379/0"
+        run: |
+          pytest -v --durations=10
+
+  # ============================================================
+  # Automated Evaluation Regression Gate (RAGAS / DeepEval)
+  # ============================================================
+  eval-regression-gate:
+    name: Evaluation Benchmark & Quality Gate
+    runs-on: ubuntu-latest
+    needs: unit-tests
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Automated Evaluation Benchmark
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'test-key' }}
+          QDRANT_PREFER_MEMORY: "true"
+        run: |
+          python scripts/run_evals.py --limit 20 --threshold-router 0.85 --threshold-guardrail 0.90
+
+      - name: Upload Evaluation Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-benchmark-report
+          path: eval_results/
+
+  # ============================================================
+  # Docker Container Build Smoke Test
+  # ============================================================
+  docker-smoke-test:
+    name: Docker Image Build Smoke Test
+    runs-on: ubuntu-latest
+    needs: unit-tests
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: agentic-enterprise-copilot:test

@@ -1,0 +1,122 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: enterprise-copilot
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: copilot-config
+  namespace: enterprise-copilot
+data:
+  ENVIRONMENT: "production"
+  GEMINI_MODEL_NAME: "gemini-2.5-flash"
+  QDRANT_HOST: "qdrant.enterprise-copilot.svc.cluster.local"
+  QDRANT_PORT: "6333"
+  QDRANT_COLLECTION: "enterprise_documents"
+  REDIS_URL: "redis://redis.enterprise-copilot.svc.cluster.local:6379/0"
+  REDIS_ENABLED: "true"
+  CACHE_TTL_SECONDS: "3600"
+  GUARDRAILS_ENABLED: "true"
+  JAEGER_ENABLED: "true"
+  JAEGER_HOST: "jaeger.enterprise-copilot.svc.cluster.local"
+  JAEGER_PORT: "4318"
+  JAEGER_ENDPOINT: "http://jaeger.enterprise-copilot.svc.cluster.local:4318/v1/traces"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: enterprise-copilot-app
+  namespace: enterprise-copilot
+  labels:
+    app: enterprise-copilot
+    component: api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: enterprise-copilot
+  template:
+    metadata:
+      labels:
+        app: enterprise-copilot
+        component: api
+    spec:
+      containers:
+        - name: copilot-api
+          image: agentic-enterprise-copilot:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: copilot-config
+          env:
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: copilot-secrets
+                  key: GEMINI_API_KEY
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: copilot-secrets
+                  key: DATABASE_URL
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: copilot-service
+  namespace: enterprise-copilot
+spec:
+  type: LoadBalancer
+  selector:
+    app: enterprise-copilot
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: copilot-hpa
+  namespace: enterprise-copilot
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: enterprise-copilot-app
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

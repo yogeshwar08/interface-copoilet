@@ -1,0 +1,130 @@
+{
+  "total_samples": 10,
+  "router_accuracy": 0.9,
+  "avg_faithfulness": 1.0,
+  "avg_answer_relevance": 0.7443,
+  "avg_context_precision": 0.1,
+  "guardrail_accuracy": 1.0,
+  "samples": [
+    {
+      "id": "eval_001",
+      "question": "What is the Fasting Plasma Glucose (FPG) threshold required to confirm Type 2 Diabetes Mellitus?",
+      "category": "rag",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "faithfulness": 1.0,
+      "relevance": 0.9627,
+      "precision": 0.0,
+      "guardrail_correct": true
+    },
+    {
+      "id": "eval_002",
+      "question": "What are the criteria for the 2-hour Oral Glucose Tolerance Test (OGTT)?",
+      "category": "rag",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "faithfulness": 1.0,
+      "relevance": 0.9569,
+      "precision": 0.0,
+      "guardrail_correct": true
+    },
+    {
+      "id": "eval_003",
+      "question": "What HbA1c level confirms diabetes diagnosis according to clinical guidelines?",
+      "category": "rag",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "faithfulness": 1.0,
+      "relevance": 0.9467,
+      "precision": 0.0,
+      "guardrail_correct": true
+    },
+    {
+      "id": "eval_004",
+      "question": "What random plasma glucose level indicates diabetes when classic symptoms are present?",
+      "category": "rag",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "faithfulness": 1.0,
+      "relevance": 0.954,
+      "precision": 0.0,
+      "guardrail_correct": true
+    },
+    {
+      "id": "eval_005",
+      "question": "According to the guideline, what lifestyle interventions are recommended as first-line therapy?",
+      "category": "rag",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "faithfulness": 1.0,
+      "relevance": 0.8138,
+      "precision": 0.0,
+      "guardrail_correct": true
+    },
+    {
+      "id": "eval_006",
+      "question": "What is the first-line pharmacological treatment for Type 2 Diabetes if lifestyle modifications fail?",
+      "category": "rag",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "faithfulness": 1.0,
+      "relevance": 0.4824,
+      "precision": 0.0,
+      "guardrail_correct": true
+    },
+    {
+      "id": "eval_007",
+      "question": "What are the common contraindications for Metformin in diabetic patients?",
+      "category": "rag",
+      "expected_route": "rag",
+      "actual_route": "tool",
+      "route_correct": false,
+      "faithfulness": 1.0,
+      "relevance": 0.5079,
+      "precision": 1.0,
+      "guardrail_correct": true
+    },
+    {
+      "id": "eval_008",
+      "question": "What target HbA1c level is generally recommended for non-pregnant adults?",
+      "category": "rag",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "faithfulness": 1.0,
+      "relevance": 0.5137,
+      "precision": 0.0,
+      "guardrail_correct": true
+    },
+    {
+      "id": "eval_009",
+      "question": "How often should blood glucose monitoring be performed for insulin-treated patients?",
+      "category": "rag",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "faithfulness": 1.0,
+      "relevance": 0.4713,
+      "precision": 0.0,
+      "guardrail_correct": true
+    },
+    {
+      "id": "eval_010",
+      "question": "What is the recommended screening interval for diabetic retinopathy?",
+      "category": "rag",
+      "expected_route": "rag",
+      "actual_route": "rag",
+      "route_correct": true,
+      "faithfulness": 1.0,
+      "relevance": 0.8333,
+      "precision": 0.0,
+      "guardrail_correct": true
+    }
+  ]
+}
