@@ -1,0 +1,45 @@
+## render.yaml - Render Blueprint (Infrastructure as Code)
+## Commit this file and connect the repo to Render.
+## Render will automatically create both the web service AND a free PostgreSQL database.
+## The DATABASE_URL env var is injected automatically from the database instance below.
+
+services:
+  - type: web
+    name: interface-copoilet
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+
+      # LLM
+      - key: GEMINI_API_KEY
+        sync: false
+
+      # Database - auto-injected from the PostgreSQL instance below
+      - key: DATABASE_URL
+        fromDatabase:
+          name: interface-copoilet-db
+          property: connectionString
+
+      # Vector Store (Qdrant Cloud) - set manually in dashboard
+      - key: QDRANT_URL
+        sync: false
+
+      # Redis - disabled, app falls back to in-memory cache automatically
+      - key: REDIS_ENABLED
+        value: "false"
+
+      # Jaeger - disabled, no Jaeger container on Render free tier
+      - key: JAEGER_ENABLED
+        value: "false"
+
+databases:
+  - name: interface-copoilet-db
+    plan: free
+    databaseName: aegisdb
+    user: aegis_readonly

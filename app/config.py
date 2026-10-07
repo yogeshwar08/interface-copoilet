@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     langsmith_endpoint: str = "https://api.smith.langchain.com"
 
     # Jaeger Distributed Tracing
-    jaeger_enabled: bool = True
+    jaeger_enabled: bool = False
     jaeger_host: str = "localhost"
     jaeger_port: int = 4318
     jaeger_endpoint: str = "http://localhost:4318/v1/traces"
