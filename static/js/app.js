@@ -311,6 +311,30 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify({ query, bypass_cache: bypassCache }),
       });
 
+      // Render's proxy can return 502/503/504 when the agent takes > 55s.
+      // Fall back to the non-streaming /query endpoint to still get an answer.
+      if (!response.ok && [502, 503, 504].includes(response.status)) {
+        typingStatusHint.textContent = "Switching to direct mode...";
+        const fallback = await fetch("/api/v1/query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query, bypass_cache: bypassCache }),
+        });
+        if (!fallback.ok) throw new Error(`Query failed with status: ${fallback.status}`);
+        const data = await fallback.json();
+
+        routeCaptured = data.route || "direct";
+        renderMetaBadges(metaHeader, routeCaptured, !!data.cached, data.guardrail_status || "passed");
+
+        const indicator = contentEl.querySelector("#current-stream-indicator");
+        if (indicator) indicator.remove();
+        contentEl.innerHTML = formatMarkdown(data.response || "");
+        if (data.citations && data.citations.length > 0) renderCitationChips(contentEl, data.citations);
+        renderTelemetryFooter(telemetryFooter, data.trace_id, data.latency_ms, data.tokens_used, !!data.cached);
+        scrollToBottom();
+        return;
+      }
+
       if (!response.ok) {
         throw new Error(`Streaming failed with status: ${response.status}`);
       }
@@ -329,6 +353,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         for (const eventStr of events) {
           if (!eventStr.trim()) continue;
+          // Skip SSE comment lines (keepalive pings from the server)
+          if (eventStr.trimStart().startsWith(":")) continue;
+
           const lines = eventStr.split("\n");
           let eventType = "";
           let eventDataRaw = "";

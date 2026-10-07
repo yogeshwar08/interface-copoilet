@@ -1,11 +1,14 @@
 import asyncio
 import json
+import logging
 import time
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 from app.agents.graph import agent_graph
 from app.cache.redis_cache import cache_service
@@ -245,6 +248,9 @@ async def query_stream(request: QueryRequest):
     """
     Streaming SSE endpoint delivering progressive tokens,
     sub-agent routing decisions, and citation verification in real time.
+
+    Uses a concurrent keepalive heartbeat to prevent Render's 55-second proxy
+    timeout from closing the SSE connection before the agent finishes.
     """
     query_text = request.query.strip()
     start_time = time.perf_counter()
@@ -256,12 +262,11 @@ async def query_stream(request: QueryRequest):
             yield f"event: status\ndata: {json.dumps({'message': 'Executing security guardrails & query router...'})}\n\n"
             await asyncio.sleep(0.02)
 
-            # Check cache
+            # Check cache first — instant return, no timeout risk
             if not request.bypass_cache:
                 cached_data = cache_service.get(query_text)
                 if cached_data:
                     yield f"event: route\ndata: {json.dumps({'route': cached_data.get('route'), 'cached': True})}\n\n"
-                    # Stream tokens in small chunks for smooth UX
                     full_response = cached_data.get("response", "")
                     words = full_response.split(" ")
                     for i in range(0, len(words), 3):
@@ -276,7 +281,7 @@ async def query_stream(request: QueryRequest):
                     yield f"event: done\ndata: {json.dumps({'trace_id': trace.trace_id, 'latency_ms': total_latency, 'cached': True})}\n\n"
                     return
 
-            # Execute LangGraph
+            # Build initial LangGraph state
             initial_state = {
                 "query": query_text,
                 "route": "",
@@ -297,8 +302,30 @@ async def query_stream(request: QueryRequest):
                 "cached": False,
             }
 
-            # Run in worker thread to avoid blocking asyncio event loop
-            result = await asyncio.to_thread(agent_graph.invoke, initial_state)
+            # ── Run agent in a background asyncio Task ──────────────────────────
+            # This allows us to yield keepalive comment pings to Render's proxy
+            # every 15 seconds while the agent is processing, preventing the 502.
+            agent_task = asyncio.create_task(
+                asyncio.to_thread(agent_graph.invoke, initial_state)
+            )
+
+            # Keepalive loop: yield SSE comment pings every 15s until agent done
+            KEEPALIVE_INTERVAL = 15  # seconds
+            ping_count = 0
+            while not agent_task.done():
+                try:
+                    await asyncio.wait_for(
+                        asyncio.shield(agent_task), timeout=KEEPALIVE_INTERVAL
+                    )
+                except asyncio.TimeoutError:
+                    ping_count += 1
+                    # SSE comment lines (": ...") are invisible to the client but
+                    # flush bytes through Render's proxy, resetting its idle timer
+                    yield f": keepalive {ping_count}\n\n"
+
+            # Retrieve result (re-raises if the task raised an exception)
+            result = agent_task.result()
+            # ────────────────────────────────────────────────────────────────────
 
             route_selected = result.get("route", "direct")
             yield f"event: route\ndata: {json.dumps({'route': route_selected, 'reasoning': result.get('route_reasoning')})}\n\n"
@@ -308,7 +335,7 @@ async def query_stream(request: QueryRequest):
             if route_selected == "rag" and result.get("sources"):
                 yield f"event: sources\ndata: {json.dumps({'sources_found': len(result['sources'])})}\n\n"
 
-            # Stream response content
+            # Stream response content word-by-word for smooth UX
             full_response = result.get("response", "")
             words = full_response.split(" ")
             for i in range(0, len(words), 4):
@@ -316,7 +343,7 @@ async def query_stream(request: QueryRequest):
                 yield f"event: token\ndata: {json.dumps({'token': chunk})}\n\n"
                 await asyncio.sleep(0.02)
 
-            # Emit citations event if any
+            # Emit citations if any
             if result.get("citations"):
                 yield f"event: citations\ndata: {json.dumps({'citations': result.get('citations')})}\n\n"
 
@@ -349,6 +376,7 @@ async def query_stream(request: QueryRequest):
             yield f"event: done\ndata: {json.dumps({'trace_id': trace.trace_id, 'latency_ms': total_latency, 'tokens_used': total_tokens, 'cached': False})}\n\n"
 
         except Exception as exc:
+            logger.error(f"Streaming error for query '{query_text[:60]}': {exc}")
             yield f"event: error\ndata: {json.dumps({'error': str(exc)})}\n\n"
 
     return StreamingResponse(
@@ -357,6 +385,7 @@ async def query_stream(request: QueryRequest):
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
+            # Disable nginx/Render proxy buffering so bytes flush immediately
             "X-Accel-Buffering": "no",
         },
     )
