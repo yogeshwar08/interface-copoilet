@@ -1,45 +1,95 @@
-## render.yaml - Render Blueprint (Infrastructure as Code)
-## Commit this file and connect the repo to Render.
-## Render will automatically create both the web service AND a free PostgreSQL database.
-## The DATABASE_URL env var is injected automatically from the database instance below.
+﻿# ============================================================
+# Render Blueprint — Agentic Enterprise Knowledge Copilot
+# https://render.com/docs/blueprint-spec
+# ============================================================
+#
+# BEFORE deploying, set these secret env vars in the Render dashboard:
+#   - GEMINI_API_KEY          (required)
+#   - QDRANT_URL              (required — get from https://cloud.qdrant.io)
+#   - QDRANT_API_KEY          (required — get from Qdrant Cloud dashboard)
+#   - LANGSMITH_API_KEY       (optional — for LangSmith tracing)
+#
+# Then connect this repo in Render -> New -> Blueprint.
+# ============================================================
 
 services:
+  # ============================================================
+  # Web Service - FastAPI Multi-Agent Copilot
+  # ============================================================
   - type: web
-    name: interface-copoilet
+    name: agentic-enterprise-copilot
     runtime: docker
     dockerfilePath: ./Dockerfile
-    plan: free
+    dockerContext: .
+    plan: starter
+    region: oregon
+    branch: main
     healthCheckPath: /api/v1/health
+
     envVars:
       - key: ENVIRONMENT
         value: production
-      - key: DEBUG
-        value: "false"
+      - key: PORT
+        value: 10000
 
-      # LLM
       - key: GEMINI_API_KEY
         sync: false
+      - key: GEMINI_MODEL_NAME
+        value: gemini-2.5-flash
 
-      # Database - auto-injected from the PostgreSQL instance below
       - key: DATABASE_URL
         fromDatabase:
-          name: interface-copoilet-db
+          name: copilot-postgres
           property: connectionString
 
-      # Vector Store (Qdrant Cloud) - set manually in dashboard
       - key: QDRANT_URL
         sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: QDRANT_COLLECTION
+        value: enterprise_documents
+      - key: QDRANT_PREFER_MEMORY
+        value: false
 
-      # Redis - disabled, app falls back to in-memory cache automatically
+      - key: REDIS_URL
+        fromService:
+          name: copilot-redis
+          type: redis
+          property: connectionString
       - key: REDIS_ENABLED
-        value: "false"
+        value: true
+      - key: CACHE_TTL_SECONDS
+        value: 3600
 
-      # Jaeger - disabled, no Jaeger container on Render free tier
+      - key: GUARDRAILS_ENABLED
+        value: true
+      - key: INJECTION_STRICTNESS
+        value: "0.85"
+
+      - key: LANGSMITH_TRACING
+        value: false
+      - key: LANGSMITH_API_KEY
+        sync: false
+      - key: LANGSMITH_PROJECT
+        value: agentic-enterprise-copilot
       - key: JAEGER_ENABLED
-        value: "false"
+        value: false
 
-databases:
-  - name: interface-copoilet-db
+  # ============================================================
+  # Managed Redis
+  # ============================================================
+  - type: redis
+    name: copilot-redis
     plan: free
+    region: oregon
+    maxmemoryPolicy: allkeys-lru
+
+# ============================================================
+# Managed PostgreSQL
+# ============================================================
+databases:
+  - name: copilot-postgres
+    plan: free
+    region: oregon
     databaseName: aegisdb
     user: aegis_readonly
