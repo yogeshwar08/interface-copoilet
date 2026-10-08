@@ -70,6 +70,30 @@ def create_collection():
             for collection in q_client.get_collections().collections
         ]
 
+        if COLLECTION_NAME in existing_collections:
+            # Verify existing vector dimension matches current embedding backend
+            try:
+                info = q_client.get_collection(COLLECTION_NAME)
+                vectors_cfg = getattr(info.config.params, "vectors", None)
+                existing_dim = None
+                if hasattr(vectors_cfg, "size"):
+                    existing_dim = vectors_cfg.size
+                elif isinstance(vectors_cfg, dict):
+                    first_cfg = next(iter(vectors_cfg.values()), None)
+                    if hasattr(first_cfg, "size"):
+                        existing_dim = first_cfg.size
+
+                if existing_dim is not None and existing_dim != VECTOR_SIZE:
+                    logger.warning(
+                        f"Collection '{COLLECTION_NAME}' exists with dimension {existing_dim}, "
+                        f"but active embedding model produces {VECTOR_SIZE}-dim vectors. "
+                        f"Recreating collection to match new dimensionality..."
+                    )
+                    q_client.delete_collection(COLLECTION_NAME)
+                    existing_collections.remove(COLLECTION_NAME)
+            except Exception as dim_err:
+                logger.warning(f"Could not verify existing collection dimension: {dim_err}")
+
         if COLLECTION_NAME not in existing_collections:
             q_client.create_collection(
                 collection_name=COLLECTION_NAME,
@@ -78,7 +102,7 @@ def create_collection():
                     distance=Distance.COSINE,
                 ),
             )
-            logger.info(f"Created collection: {COLLECTION_NAME}")
+            logger.info(f"Created collection: {COLLECTION_NAME} (vector size {VECTOR_SIZE})")
         else:
             logger.debug(f"Collection already exists: {COLLECTION_NAME}")
     except Exception as exc:
