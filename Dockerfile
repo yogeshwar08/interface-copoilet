@@ -28,19 +28,6 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r requirements.txt
 
-# Pre-download the HuggingFace embedding model at BUILD TIME into /app/.cache
-# so that when we chown /app to appuser in the runner stage, the model cache
-# is readable by the unprivileged user — avoids PermissionError on /root/.cache.
-# This also eliminates the ~60-90s download on first request (Render 502 fix).
-ENV HF_HOME=/app/.cache/huggingface \
-    TRANSFORMERS_CACHE=/app/.cache/huggingface
-RUN python -c "\
-from sentence_transformers import SentenceTransformer; \
-print('Downloading embedding model into /app/.cache/huggingface...'); \
-SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2'); \
-print('Embedding model cached successfully.')"
-
-
 # -------------------------
 # Stage 2: Runtime
 # -------------------------
@@ -57,14 +44,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy the pre-downloaded HuggingFace model cache from the builder stage.
-# Cache lives under /app/.cache so the chown below grants appuser read access.
-COPY --from=builder /app/.cache/huggingface /app/.cache/huggingface
-
 # Memory & Runtime Optimization Environment
-# - HF_HOME points inside /app so appuser can read the baked-in model cache
-# - HF_HUB_OFFLINE=1 prevents any HF Hub network calls (model is already baked in)
-# - TRANSFORMERS_OFFLINE=1 same for Transformers library
+# - USE_GEMINI_EMBEDDINGS=true: use Gemini API embeddings (eliminates PyTorch -> fits 512MB RAM)
 # - Limit thread pools to 1 to avoid thread arena heap allocations in low-RAM containers
 # - Use standard malloc instead of pymalloc to return memory directly to OS
 ENV PYTHONUNBUFFERED=1 \
@@ -75,11 +56,9 @@ ENV PYTHONUNBUFFERED=1 \
     TORCH_NUM_THREADS=1 \
     PYTHONMALLOC=malloc \
     RERANKER_ENABLED=false \
-    PORT=10000 \
-    HF_HOME=/app/.cache/huggingface \
-    TRANSFORMERS_CACHE=/app/.cache/huggingface \
-    HF_HUB_OFFLINE=1 \
-    TRANSFORMERS_OFFLINE=1
+    USE_GEMINI_EMBEDDINGS=true \
+    EMBEDDING_VECTOR_SIZE=768 \
+    PORT=10000
 
 # Copy application source code, static frontend assets, and configurations
 COPY app/ /app/app/

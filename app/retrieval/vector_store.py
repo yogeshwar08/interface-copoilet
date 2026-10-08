@@ -8,7 +8,10 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 COLLECTION_NAME = settings.qdrant_collection
-VECTOR_SIZE = 384
+# Import the resolved vector size from the embeddings module.
+# 384 for local sentence-transformers, 768 for Gemini text-embedding-004.
+from app.retrieval.embeddings import EMBEDDING_VECTOR_SIZE
+VECTOR_SIZE = EMBEDDING_VECTOR_SIZE
 
 _client: Optional[QdrantClient] = None
 

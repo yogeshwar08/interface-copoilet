@@ -9,9 +9,10 @@ services:
     container_name: enterprise_copilot_app
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8000:10000"
     environment:
       - ENVIRONMENT=production
+      - PORT=10000
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GEMINI_MODEL_NAME=gemini-2.5-flash
       - DATABASE_URL=postgresql://aegis_readonly:aegis_readonly_password@postgres:5432/aegisdb

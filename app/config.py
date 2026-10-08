@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
     reranker_model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     reranker_enabled: bool = True
+    # Set USE_GEMINI_EMBEDDINGS=true on Render (512MB) to use Gemini API for
+    # embeddings instead of local sentence-transformers, eliminating PyTorch
+    # from the runtime and saving ~250MB of RAM.
+    use_gemini_embeddings: bool = False
+    embedding_vector_size: int = 384   # 384 for local MiniLM, 768 for Gemini
 
     # Observability & Tracing (LangSmith / Jaeger)
     langsmith_tracing: bool = False

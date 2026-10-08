@@ -53,6 +53,10 @@ services:
         value: enterprise_documents
       - key: QDRANT_PREFER_MEMORY
         value: true          # In-memory mode: PDFs in data/raw/ are auto-indexed at every startup
+      - key: USE_GEMINI_EMBEDDINGS
+        value: "true"        # Use Gemini API embeddings (eliminates PyTorch -> 512MB RAM fit)
+      - key: EMBEDDING_VECTOR_SIZE
+        value: "768"         # 768 dimensions for gemini-embedding-001
 
       - key: REDIS_URL
         fromService:
