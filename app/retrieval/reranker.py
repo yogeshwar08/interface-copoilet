@@ -40,13 +40,30 @@ class Reranker:
             return documents[:top_k]
 
         try:
-            pairs = [
-                (query, document["payload"]["text"])
-                for document in documents
-            ]
-            scores = model.predict(pairs)
+            # Build pairs — robustly extract text from whichever payload key is present
+            valid_pairs = []
+            valid_docs = []
+            for doc in documents:
+                payload = doc.get("payload", {})
+                text = (
+                    payload.get("text")
+                    or payload.get("content")
+                    or payload.get("chunk_text")
+                    or doc.get("text")
+                    or ""
+                )
+                if not text:
+                    continue
+                valid_pairs.append((query, text))
+                valid_docs.append(doc)
+
+            if not valid_pairs:
+                logger.warning("Reranker: no extractable text in candidates; returning as-is.")
+                return documents[:top_k]
+
+            scores = model.predict(valid_pairs)
             ranked = sorted(
-                zip(scores, documents),
+                zip(scores, valid_docs),
                 key=lambda x: x[0],
                 reverse=True,
             )

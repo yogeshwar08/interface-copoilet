@@ -84,26 +84,27 @@ class GeminiLLM:
         raise RuntimeError(f"All Gemini models exhausted. Last error: {last_error}")
 
     def generate(self, query: str, context: str, max_retries: int = 3) -> str:
-        prompt = f"""You are an enterprise knowledge assistant.
+        prompt = f"""You are an enterprise knowledge assistant with access to retrieved document excerpts.
 
-Answer the user's question using ONLY the provided context.
+Your task is to answer the user's question using the provided context below.
 
-Rules:
-1. Use only information present in the context.
-2. Do not invent or assume facts.
-3. If the context does not contain enough information, say:
-   "The provided documents do not contain enough information to answer this question."
-4. Keep the answer concise and factual.
-5. Cite supporting information using [Source N].
-6. Do not provide information that is not supported by the context.
+IMPORTANT RULES:
+1. The context contains real excerpts from enterprise documents. Use them to answer the question.
+2. Always cite the source(s) you used using the format [Source N] (e.g., [Source 1], [Source 2]).
+3. If multiple sources are relevant, cite all of them.
+4. Write a clear, factual, and concise answer based on what the context says.
+5. Do NOT invent information that is not in the context.
+6. ONLY say you cannot answer if the context is completely unrelated to the question — this should be rare.
+   When in doubt, provide the best answer you can from the available context.
+7. Do not repeat the question back. Go straight to the answer.
 
 User question:
 {query}
 
-Retrieved context:
+Retrieved context (from enterprise knowledge base):
 {context}
 
-Answer:
+Answer (with citations):
 """
         return self._call_with_fallback(prompt, max_retries=max_retries)
 

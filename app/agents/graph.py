@@ -126,7 +126,12 @@ def router_node(state: AgentState) -> AgentState:
         "document", "documents", "guideline", "guidelines", "policy", "policies",
         "report", "reports", "according to", "what does", "explain", "criteria",
         "diabetes", "diagnosis", "treatment", "fasting plasma", "glucose", "hba1c",
-        "sec", "10-k", "filing"
+        "sec", "10-k", "filing",
+        # Generic interrogative phrases that imply knowledge lookup
+        "what is", "what are", "how is", "how are", "how does", "how do",
+        "tell me", "describe", "definition", "define", "meaning", "overview",
+        "show me", "give me", "find", "search", "lookup", "look up",
+        "when", "where", "why", "which", "who",
     ]
     if any(kw in query for kw in rag_keywords):
         return {
@@ -135,7 +140,8 @@ def router_node(state: AgentState) -> AgentState:
             "route_reasoning": "Detected enterprise document / policy retrieval query",
         }
 
-    # Default fallback to RAG for exploratory questions, or tool for unknown
+    # Default fallback: always try RAG for any substantive question (>2 words)
+    # so the user gets a grounded answer instead of a generic capability overview.
     if len(query.split()) > 2:
         return {
             **state,
@@ -232,10 +238,13 @@ def validate_citations(response: str, sources: list[dict]):
 
 def answer_node(state: AgentState) -> AgentState:
     query = state["query"]
-    context = state["context"]
-    sources = state["sources"]
+    context = state.get("context", "")
+    sources = state.get("sources", [])
 
-    if not context or not sources:
+    # Only issue a hard refusal if there is genuinely NO context whatsoever.
+    # An empty 'sources' list alone is not sufficient — the context string may
+    # still hold text even if payload parsing found no structured source objects.
+    if not context or not context.strip():
         return {
             **state,
             "response": (
@@ -262,15 +271,15 @@ def answer_node(state: AgentState) -> AgentState:
             "cannot determine",
             "does not contain",
             "not provide enough verified",
+            "does not provide",
+            "no information",
         ]
         if not any(rp in raw_response.lower() for rp in refusal_phrases):
             # Model answered from context but omitted citation tag; attribute to primary source
             cleaned_response = f"{raw_response.strip()} [Source 1]"
             valid_citations = [1]
-        else:
-            cleaned_response = (
-                "The retrieved documents do not provide enough verified information to answer this question."
-            )
+        # If it IS a refusal phrase, keep the LLM's own wording — it's already informative.
+        # Do NOT replace with the hardcoded generic message; the LLM saw the context.
 
     return {
         **state,
