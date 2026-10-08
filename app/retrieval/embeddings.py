@@ -15,10 +15,14 @@ class EmbeddingModel:
             self._model = SentenceTransformer(self.model_name)
         return self._model
 
-    def encode(self, texts: list[str]):
+    def encode(self, texts: list[str], batch_size: int = 8):
+        # batch_size=8 keeps PyTorch peak memory low on 512MB Render instances.
+        # Encoding all chunks at once causes OOM; small batches process sequentially.
         return self.model.encode(
             texts,
+            batch_size=batch_size,
             normalize_embeddings=True,
+            show_progress_bar=False,
         )
 
 

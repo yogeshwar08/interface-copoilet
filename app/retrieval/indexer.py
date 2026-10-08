@@ -1,3 +1,4 @@
+import gc
 import logging
 import uuid
 from pathlib import Path
@@ -112,5 +113,8 @@ def ensure_documents_indexed() -> int:
                 f"  Failed to index '{pdf_path.name}': {exc}",
                 exc_info=True,
             )
+        finally:
+            # Release PyMuPDF page objects + PyTorch tensors before next PDF
+            gc.collect()
 
     return total_chunks

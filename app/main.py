@@ -1,4 +1,6 @@
+import gc
 import logging
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -37,18 +39,34 @@ def _run_db_init():
         logger.warning(f"DB init skipped (DB not yet reachable): {exc}")
 
 
+def _background_index():
+    """
+    Indexes all PDFs in data/raw/ into Qdrant in a background thread.
+    Running after yield means the server is already up and Render's health
+    check passes BEFORE the memory-intensive embedding work begins.
+    This prevents OOM crashes on 512MB Render starter instances.
+    """
+    try:
+        gc.collect()  # free any startup allocations before heavy work
+        indexed = ensure_documents_indexed()
+        if indexed > 0:
+            logger.info(f"Background indexing complete: {indexed} chunks in vector store.")
+        else:
+            logger.warning("Background indexing: no documents found or indexing failed.")
+    except Exception as exc:
+        logger.error(f"Background indexing error: {exc}", exc_info=True)
+    finally:
+        gc.collect()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _run_db_init()
-    # Auto-index any PDFs in data/raw into Qdrant at startup
-    try:
-        indexed = ensure_documents_indexed()
-        if indexed > 0:
-            logger.info(f"Startup: {indexed} document chunks available in vector store.")
-        else:
-            logger.warning("Startup: No documents indexed — RAG queries will return empty context.")
-    except Exception as exc:
-        logger.warning(f"Startup document indexing skipped: {exc}")
+    # Start indexing in a daemon background thread AFTER yield so the HTTP
+    # server is live and can respond to Render's health probe immediately.
+    # This avoids OOM from running heavy embedding work before port binding.
+    indexing_thread = threading.Thread(target=_background_index, daemon=True, name="startup-indexer")
+    indexing_thread.start()
     yield
 
 
