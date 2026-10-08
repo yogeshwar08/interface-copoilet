@@ -50,6 +50,8 @@ class Settings(BaseSettings):
     jaeger_port: int = 4318
     jaeger_endpoint: str = "http://localhost:4318/v1/traces"
     jaeger_ui_url: str = "http://localhost:16686"
+    jaeger_username: str = ""   # Grafana Cloud: numeric instance ID
+    jaeger_password: str = ""   # Grafana Cloud: API token / password
 
     # Guardrails
     guardrails_enabled: bool = True

@@ -170,11 +170,19 @@ class ObservabilityService:
                             }
                         ]
                     }
-                    with httpx.Client(timeout=1.0) as client:
+                    headers = {"Content-Type": "application/json"}
+                    # Grafana Cloud (and other OTLP collectors) require Basic Auth
+                    if settings.jaeger_username and settings.jaeger_password:
+                        import base64
+                        token = base64.b64encode(
+                            f"{settings.jaeger_username}:{settings.jaeger_password}".encode()
+                        ).decode()
+                        headers["Authorization"] = f"Basic {token}"
+                    with httpx.Client(timeout=2.0) as client:
                         client.post(
                             settings.jaeger_endpoint,
                             json=payload,
-                            headers={"Content-Type": "application/json"},
+                            headers=headers,
                         )
                 except Exception as exc:
                     logger.debug(f"Jaeger export skipped (collector unavailable): {exc}")
