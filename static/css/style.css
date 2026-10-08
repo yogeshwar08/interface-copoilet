@@ -1143,3 +1143,103 @@ body {
   font-size: 0.72rem;
   flex-shrink: 0;
 }
+
+/* ============================================================
+   PDF SOURCE VIEWER MODAL
+   ============================================================ */
+
+.pdf-viewer-card {
+  width: min(96vw, 1100px);
+  max-width: 1100px;
+  height: min(92vh, 880px);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.pdf-viewer-card .modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-glass);
+  flex-shrink: 0;
+}
+
+.pdf-viewer-body {
+  flex: 1;
+  min-height: 0;
+  background: #1a1a2e;
+  position: relative;
+}
+
+.pdf-viewer-body iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+  background: #fff;
+}
+
+/* Clickable inline [Source N] citation tags */
+.citation-inline-tag {
+  color: #22D3EE;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  background: rgba(6, 182, 212, 0.12);
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(6, 182, 212, 0.25);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  display: inline-block;
+  user-select: none;
+  text-decoration: none;
+}
+
+.citation-inline-tag:hover {
+  background: rgba(6, 182, 212, 0.24);
+  border-color: rgba(6, 182, 212, 0.55);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(6, 182, 212, 0.2);
+}
+
+.citation-inline-tag:active {
+  transform: translateY(0);
+}
+
+/* Citation chip with source doc open capability */
+.citation-chip.has-doc {
+  cursor: pointer;
+}
+
+.citation-chip.has-doc:hover {
+  border-color: rgba(6, 182, 212, 0.5);
+  background: rgba(6, 182, 212, 0.08);
+}
+
+.citation-chip .chip-open-icon {
+  margin-left: auto;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.citation-chip.has-doc:hover .chip-open-icon {
+  opacity: 1;
+  color: #22D3EE;
+}
+
+/* PDF viewer loading state */
+.pdf-viewer-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(14, 19, 31, 0.92);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+

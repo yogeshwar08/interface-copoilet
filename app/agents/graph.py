@@ -335,9 +335,13 @@ def tool_node(state: AgentState) -> AgentState:
             weather = get_tool("weather")
             # Default to Delhi coordinates or extracted lat/long
             result = weather.run(latitude=28.6139, longitude=77.2090)
+            location = result.get("city") or "Lat 28.61°N, Lon 77.21°E"
+            description = result.get("weather_description") or ""
+            description_line = f"\n- Conditions: {description}" if description else ""
             response = (
-                f"Current Weather Report (Lat 28.61, Lon 77.21):\n"
-                f"- Temperature: {result['temperature_c']} °C (Feels like: {result['apparent_temperature_c']} °C)\n"
+                f"Current Weather Report ({location}):{description_line}\n"
+                f"- Temperature: {result['temperature_c']} °C "
+                f"(Feels like: {result['apparent_temperature_c']} °C)\n"
                 f"- Humidity: {result['relative_humidity_percent']}%\n"
                 f"- Wind Speed: {result['wind_speed_kmh']} km/h\n"
                 f"- Precipitation: {result['precipitation_mm']} mm"
@@ -355,6 +359,7 @@ def tool_node(state: AgentState) -> AgentState:
                 "tool_result": {},
                 "response": f"Weather tool execution failed: {exc}",
             }
+
 
     return {
         **state,

@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model_name: str = "gemini-3.5-flash"
 
+    # Weather Tool — OpenWeatherMap API key (free tier: 60 calls/min, no IP rate-limiting)
+    # Sign up at https://openweathermap.org/api → "Current Weather Data" free plan.
+    # If not set, the tool falls back to the keyless Open-Meteo API.
+    openweathermap_api_key: Optional[str] = None
+
 
     # Database configuration
     database_url: str = "postgresql://aegis_readonly:aegis_readonly_password@localhost:5432/aegisdb"

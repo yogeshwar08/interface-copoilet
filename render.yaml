@@ -5,6 +5,8 @@
 #
 # BEFORE deploying, set these secret env vars in the Render dashboard:
 #   - GEMINI_API_KEY          (required)
+#   - OPENWEATHERMAP_API_KEY  (recommended — avoids IP rate-limiting on weather queries)
+#                              Free plan: https://openweathermap.org/api
 #   - QDRANT_URL              (optional — for persistent Qdrant Cloud; omit to use fast in-memory mode)
 #   - QDRANT_API_KEY          (optional — only needed if QDRANT_URL is set)
 #   - LANGSMITH_API_KEY       (optional — for LangSmith tracing)
@@ -39,6 +41,11 @@ services:
         sync: false
       - key: GEMINI_MODEL_NAME
         value: gemini-2.5-flash
+
+      # Weather tool — OpenWeatherMap key (avoids rate-limiting on Render's shared IPs)
+      # Set this in the Render dashboard: https://openweathermap.org/api (free plan)
+      - key: OPENWEATHERMAP_API_KEY
+        sync: false
 
       - key: DATABASE_URL
         fromDatabase:

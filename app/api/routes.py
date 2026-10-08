@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -389,9 +389,9 @@ async def query_stream(request: QueryRequest):
                 yield f"event: token\ndata: {json.dumps({'token': chunk})}\n\n"
                 await asyncio.sleep(0.02)
 
-            # Emit citations if any
-            if result.get("citations"):
-                yield f"event: citations\ndata: {json.dumps({'citations': result.get('citations')})}\n\n"
+            # Emit citations and full source metadata
+            if result.get("citations") or result.get("sources"):
+                yield f"event: citations\ndata: {json.dumps({'citations': result.get('citations', []), 'sources': result.get('sources', [])})}\n\n"
 
             total_latency = round((time.perf_counter() - start_time) * 1000, 2)
             prompt_tokens = tracer.estimate_tokens(query_text + (result.get("context") or ""))
@@ -473,6 +473,27 @@ async def list_documents():
             "path": str(f),
         })
     return {"documents": docs, "total": len(docs)}
+
+
+@router.get("/documents/serve/{filename}")
+async def serve_document(filename: str):
+    """
+    Serves a stored enterprise PDF document for in-browser viewing.
+    Used by the frontend citation viewer to open source documents.
+    """
+    # Sanitize: strip any path separators to prevent directory traversal
+    safe_name = Path(filename).name
+    file_path = Path("data/raw") / safe_name
+
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail=f"Document '{safe_name}' not found in knowledge base.")
+
+    return FileResponse(
+        path=str(file_path),
+        media_type="application/pdf",
+        filename=safe_name,
+        headers={"Content-Disposition": f"inline; filename={safe_name}"},
+    )
 
 
 @router.post("/documents/upload")

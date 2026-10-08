@@ -329,7 +329,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const indicator = contentEl.querySelector("#current-stream-indicator");
         if (indicator) indicator.remove();
         contentEl.innerHTML = formatMarkdown(data.response || "");
-        if (data.citations && data.citations.length > 0) renderCitationChips(contentEl, data.citations);
+        if (data.citations && data.citations.length > 0) renderCitationChips(contentEl, data.citations, data.sources || []);
         renderTelemetryFooter(telemetryFooter, data.trace_id, data.latency_ms, data.tokens_used, !!data.cached);
         scrollToBottom();
         return;
@@ -392,8 +392,10 @@ document.addEventListener("DOMContentLoaded", () => {
             contentEl.innerHTML = formatMarkdown(fullText);
             scrollToBottom();
           } else if (eventType === "citations") {
-            if (parsedData.citations && parsedData.citations.length > 0) {
-              renderCitationChips(contentEl, parsedData.citations);
+            const cits = parsedData.citations || [];
+            const srcs = parsedData.sources || [];
+            if (cits.length > 0 || srcs.length > 0) {
+              renderCitationChips(contentEl, cits, srcs);
             }
           } else if (eventType === "done") {
             renderTelemetryFooter(
@@ -490,49 +492,36 @@ document.addEventListener("DOMContentLoaded", () => {
         <span>VERIFIED CITATIONS (${citations.length || sources.length})</span>
       </div>
       <div class="citation-chips-container"></div>
-      <div class="source-preview-box" id="source-preview-${Date.now()}"></div>
     `;
 
     const chipsContainer = wrapper.querySelector(".citation-chips-container");
-    const previewBox = wrapper.querySelector(".source-preview-box");
 
     sources.forEach((source) => {
       const chip = document.createElement("div");
-      chip.className = "citation-chip";
+      chip.className = "citation-chip has-doc";
+      chip.setAttribute("data-filename", source.filename || "");
+      chip.setAttribute("data-page", source.page || 1);
+      chip.setAttribute("data-source-num", source.source_number || 1);
       chip.innerHTML = `
         <span class="citation-source-tag">[Source ${source.source_number || 1}]</span>
-        <span class="citation-doc-name">${escapeHtml(source.filename || "document.pdf")} (P.${source.page || 1})</span>
+        <span class="citation-doc-name">${escapeHtml(source.filename || "document.pdf")} — P.${source.page || 1}</span>
+        <svg class="chip-open-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
       `;
 
       chip.addEventListener("click", () => {
-        const isCurrent = previewBox.classList.contains("open") && previewBox.getAttribute("data-active") === String(source.source_number);
-        if (isCurrent) {
-          previewBox.classList.remove("open");
-        } else {
-          previewBox.setAttribute("data-active", String(source.source_number));
-          previewBox.innerHTML = `
-            <div style="font-weight: 600; color: #22D3EE; margin-bottom: 4px;">
-              [Source ${source.source_number}] ${escapeHtml(source.filename)} — Page ${source.page || "?"}
-            </div>
-            <div style="color: var(--text-muted); font-size: 0.75rem; margin-bottom: 6px;">
-              Chunk ID: ${escapeHtml(source.chunk_id || "N/A")} | Rerank Score: ${source.score ? source.score.toFixed(4) : "N/A"}
-            </div>
-            <div style="font-size: 0.8rem; line-height: 1.5; color: var(--text-secondary);">
-              "${escapeHtml(source.text || source.content || "Passage verified in clinical knowledge base.")}"
-            </div>
-          `;
-          previewBox.classList.add("open");
-        }
+        openSourceDocument(source.filename, source.page || 1, source.source_number || 1);
       });
 
       chipsContainer.appendChild(chip);
     });
 
+    // Store sources on the parent for inline tag click delegation
+    parentEl._sourcesData = sources;
     parentEl.appendChild(wrapper);
   }
 
-  // Render Citation Chips for Streamed Response
-  function renderCitationChips(parentEl, citations) {
+  // Render Citation Chips for Streamed Response (with full source metadata)
+  function renderCitationChips(parentEl, citations, sources) {
     let wrapper = parentEl.querySelector(".citations-wrapper");
     if (!wrapper) {
       wrapper = document.createElement("div");
@@ -548,12 +537,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const container = wrapper.querySelector(".citation-chips-container");
     container.innerHTML = "";
-    citations.forEach((num) => {
-      const chip = document.createElement("div");
-      chip.className = "citation-chip";
-      chip.innerHTML = `<span class="citation-source-tag">[Source ${num}]</span> <span class="citation-doc-name">Verified Document Passage</span>`;
-      container.appendChild(chip);
-    });
+
+    // If we have full source objects, render rich chips
+    if (sources && sources.length > 0) {
+      // Store sources for inline tag delegation
+      parentEl._sourcesData = sources;
+      sources.forEach((source) => {
+        const chip = document.createElement("div");
+        chip.className = "citation-chip has-doc";
+        chip.setAttribute("data-filename", source.filename || "");
+        chip.setAttribute("data-page", source.page || 1);
+        chip.setAttribute("data-source-num", source.source_number || 1);
+        chip.innerHTML = `
+          <span class="citation-source-tag">[Source ${source.source_number || 1}]</span>
+          <span class="citation-doc-name">${escapeHtml(source.filename || "document.pdf")} — P.${source.page || 1}</span>
+          <svg class="chip-open-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        `;
+        chip.addEventListener("click", () => {
+          openSourceDocument(source.filename, source.page || 1, source.source_number || 1);
+        });
+        container.appendChild(chip);
+      });
+    } else {
+      // Fallback: render plain number-only chips
+      citations.forEach((num) => {
+        const chip = document.createElement("div");
+        chip.className = "citation-chip";
+        chip.innerHTML = `<span class="citation-source-tag">[Source ${num}]</span> <span class="citation-doc-name">Verified Document Passage</span>`;
+        container.appendChild(chip);
+      });
+    }
   }
 
   // Render Message Telemetry Footer
@@ -600,10 +613,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // Bold **text**
     formatted = formatted.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
 
-    // Citations [Source N] highlighting
+    // Citations [Source N] — clickable tags that open the source document
+    // We use a data attribute; event delegation in the chat container handles clicks.
     formatted = formatted.replace(
       /\[Source\s*(\d+)\]/gi,
-      '<span style="color: #22D3EE; font-family: var(--font-mono); font-weight: 700; background: rgba(6, 182, 212, 0.12); padding: 1px 6px; border-radius: 4px; border: 1px solid rgba(6, 182, 212, 0.25);">[Source $1]</span>'
+      '<span class="citation-inline-tag" data-source-num="$1" title="Open source document $1">[Source $1]</span>'
     );
 
     // Bullet points
@@ -926,6 +940,89 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       tracesModalList.innerHTML = `<div style="text-align: center; color: #FB7185; font-size: 0.8rem; padding: 24px;">Failed to retrieve traces: ${escapeHtml(err.message)}</div>`;
     }
+  }
+
+  // ============================================================
+  // PDF SOURCE DOCUMENT VIEWER
+  // ============================================================
+
+  /**
+   * Opens the in-browser PDF viewer modal for a source document.
+   * @param {string} filename - Filename of the PDF in data/raw/
+   * @param {number} page     - Page number to navigate to
+   * @param {number} sourceNum - [Source N] number shown in citation
+   */
+  function openSourceDocument(filename, page, sourceNum) {
+    if (!filename) return;
+    const url = `/api/v1/documents/serve/${encodeURIComponent(filename)}#page=${page || 1}`;
+    const iframe = document.getElementById("pdf-viewer-iframe");
+    const modal = document.getElementById("pdf-viewer-modal");
+    const titleEl = document.getElementById("pdf-viewer-title");
+    const subtitleEl = document.getElementById("pdf-viewer-subtitle");
+    const openLink = document.getElementById("pdf-viewer-open-link");
+
+    if (titleEl) titleEl.textContent = filename;
+    if (subtitleEl) subtitleEl.textContent = `[Source ${sourceNum}] · Page ${page || 1}`;
+    if (openLink) {
+      openLink.href = url;
+      openLink.title = `Open ${filename} in a new tab`;
+    }
+    if (iframe) iframe.src = url;
+    if (modal) modal.classList.add("open");
+  }
+
+  // Wire up PDF viewer modal close controls
+  const pdfViewerModal = document.getElementById("pdf-viewer-modal");
+  const btnClosePdfViewer = document.getElementById("btn-close-pdf-viewer");
+
+  function closePdfViewer() {
+    if (pdfViewerModal) pdfViewerModal.classList.remove("open");
+    const iframe = document.getElementById("pdf-viewer-iframe");
+    // Clear src to stop PDF network activity
+    if (iframe) iframe.src = "";
+  }
+
+  if (btnClosePdfViewer) {
+    btnClosePdfViewer.addEventListener("click", closePdfViewer);
+  }
+
+  if (pdfViewerModal) {
+    // Close on backdrop click (outside the modal card)
+    pdfViewerModal.addEventListener("click", (e) => {
+      if (e.target === pdfViewerModal) closePdfViewer();
+    });
+  }
+
+  // Close PDF viewer on Escape key
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && pdfViewerModal && pdfViewerModal.classList.contains("open")) {
+      closePdfViewer();
+    }
+  });
+
+  // ============================================================
+  // EVENT DELEGATION — Inline [Source N] tag clicks in chat
+  // ============================================================
+  if (chatMessages) {
+    chatMessages.addEventListener("click", (e) => {
+      const tag = e.target.closest(".citation-inline-tag");
+      if (!tag) return;
+
+      const sourceNum = parseInt(tag.getAttribute("data-source-num"), 10);
+
+      // Walk up to find the agent-content-area which holds _sourcesData
+      const contentArea = tag.closest(".agent-content-area");
+      if (contentArea && contentArea._sourcesData) {
+        const source = contentArea._sourcesData.find((s) => s.source_number === sourceNum);
+        if (source) {
+          openSourceDocument(source.filename, source.page || 1, source.source_number);
+          return;
+        }
+      }
+
+      // Fallback: open modal with a note — no file metadata yet
+      console.warn(`[Citation] No source metadata found for [Source ${sourceNum}]`);
+    });
   }
 
   // Initial Polls & Intervals
