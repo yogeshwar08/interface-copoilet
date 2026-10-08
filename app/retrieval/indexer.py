@@ -1,4 +1,6 @@
+import logging
 import uuid
+from pathlib import Path
 
 from qdrant_client.models import PointStruct
 
@@ -10,6 +12,13 @@ from app.retrieval.vector_store import (
     create_collection,
 )
 
+logger = logging.getLogger(__name__)
+
+# Absolute path to data/raw/ resolved relative to THIS file — works correctly
+# inside Docker containers regardless of the process working directory.
+# Path: app/retrieval/indexer.py -> parent.parent.parent = project root
+_RAW_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "raw"
+
 
 def index_document(pdf_path: str):
 
@@ -19,10 +28,7 @@ def index_document(pdf_path: str):
 
     chunks = result["chunks"]
 
-    texts = [
-        chunk.text
-        for chunk in chunks
-    ]
+    texts = [chunk.text for chunk in chunks]
 
     vectors = embedding_model.encode(texts)
 
@@ -69,27 +75,42 @@ def ensure_documents_indexed() -> int:
     """
     Ensures that documents in data/raw are indexed into Qdrant.
     If the collection is empty, automatically indexes all available PDF documents.
+    Uses an absolute path so this works correctly inside Docker containers
+    regardless of the process working directory.
     """
-    from pathlib import Path
     create_collection()
 
     try:
         count = client.count(collection_name=COLLECTION_NAME).count
         if count > 0:
+            logger.info(f"Qdrant already has {count} vectors — skipping re-index.")
             return count
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning(f"Could not read Qdrant collection count: {exc}")
 
-    raw_dir = Path("data/raw")
-    if not raw_dir.exists():
+    if not _RAW_DIR.exists():
+        logger.warning(
+            f"data/raw directory not found at '{_RAW_DIR}' — no documents to index."
+        )
         return 0
 
+    pdf_files = sorted(_RAW_DIR.glob("*.pdf"))
+    if not pdf_files:
+        logger.warning(f"No PDF files found in {_RAW_DIR}")
+        return 0
+
+    logger.info(f"Indexing {len(pdf_files)} PDF(s) from {_RAW_DIR} ...")
     total_chunks = 0
-    for pdf_path in sorted(raw_dir.glob("*.pdf")):
+    for pdf_path in pdf_files:
         try:
             res = index_document(str(pdf_path))
-            total_chunks += res.get("chunks_indexed", 0)
+            chunks = res.get("chunks_indexed", 0)
+            total_chunks += chunks
+            logger.info(f"  Indexed '{pdf_path.name}' -> {chunks} chunks")
         except Exception as exc:
-            pass
+            logger.error(
+                f"  Failed to index '{pdf_path.name}': {exc}",
+                exc_info=True,
+            )
 
     return total_chunks
