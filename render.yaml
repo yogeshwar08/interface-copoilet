@@ -5,9 +5,12 @@
 #
 # BEFORE deploying, set these secret env vars in the Render dashboard:
 #   - GEMINI_API_KEY          (required)
-#   - QDRANT_URL              (required — get from https://cloud.qdrant.io)
-#   - QDRANT_API_KEY          (required — get from Qdrant Cloud dashboard)
+#   - QDRANT_URL              (optional — for persistent Qdrant Cloud; omit to use fast in-memory mode)
+#   - QDRANT_API_KEY          (optional — only needed if QDRANT_URL is set)
 #   - LANGSMITH_API_KEY       (optional — for LangSmith tracing)
+#
+# NOTE: With QDRANT_PREFER_MEMORY=true the app auto-indexes bundled PDFs from
+#       data/raw/ at startup. No external Qdrant cluster is required.
 #
 # Then connect this repo in Render -> New -> Blueprint.
 # ============================================================
@@ -43,13 +46,13 @@ services:
           property: connectionString
 
       - key: QDRANT_URL
-        sync: false
+        sync: false         # Optional: set to a Qdrant Cloud URL for persistence across deploys
       - key: QDRANT_API_KEY
-        sync: false
+        sync: false         # Optional: only needed when QDRANT_URL is set
       - key: QDRANT_COLLECTION
         value: enterprise_documents
       - key: QDRANT_PREFER_MEMORY
-        value: false
+        value: true          # In-memory mode: PDFs in data/raw/ are auto-indexed at every startup
 
       - key: REDIS_URL
         fromService:

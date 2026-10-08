@@ -90,10 +90,11 @@ USER appuser
 
 EXPOSE 10000
 
-# Health check with relaxed start-period for container warmup
+# Health check — start-period is extended to allow startup document indexing
+# (embedding all PDFs in data/raw/ into Qdrant in-memory takes ~30-60s on cold start)
 HEALTHCHECK --interval=60s \
     --timeout=10s \
-    --start-period=60s \
+    --start-period=120s \
     --retries=3 \
     CMD curl -f http://localhost:${PORT:-10000}/api/v1/health || exit 1
 

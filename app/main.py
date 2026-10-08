@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.api.routes import router
+from app.retrieval.indexer import ensure_documents_indexed
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,15 @@ def _run_db_init():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _run_db_init()
+    # Auto-index any PDFs in data/raw into Qdrant at startup
+    try:
+        indexed = ensure_documents_indexed()
+        if indexed > 0:
+            logger.info(f"Startup: {indexed} document chunks available in vector store.")
+        else:
+            logger.warning("Startup: No documents indexed — RAG queries will return empty context.")
+    except Exception as exc:
+        logger.warning(f"Startup document indexing skipped: {exc}")
     yield
 
 
