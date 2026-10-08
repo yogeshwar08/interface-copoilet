@@ -18,33 +18,10 @@ def dense_search(query: str, top_k: int = 5) -> list:
             limit=top_k,
             with_payload=True,
         ).points
-
-        if not results:
-            from app.retrieval.indexer import ensure_documents_indexed
-            indexed_count = ensure_documents_indexed()
-            if indexed_count > 0:
-                results = client.query_points(
-                    collection_name=COLLECTION_NAME,
-                    query=query_vector.tolist(),
-                    limit=top_k,
-                    with_payload=True,
-                ).points
-
-        return results
+        return results or []
     except Exception as exc:
-        try:
-            from app.retrieval.indexer import ensure_documents_indexed
-            ensure_documents_indexed()
-            query_vector = embedding_model.encode([query])[0]
-            return client.query_points(
-                collection_name=COLLECTION_NAME,
-                query=query_vector.tolist(),
-                limit=top_k,
-                with_payload=True,
-            ).points
-        except Exception:
-            logger.debug(f"Dense search encountered error: {exc}")
-            return []
+        logger.warning(f"Dense search encountered error ({exc}). Falling back to lexical retrieval.")
+        return []
 
 
 def bm25_search(query: str, top_k: int = 5) -> list:

@@ -82,6 +82,15 @@ class GeminiEmbeddingModel:
                             wait = 5.0 * attempt
                     else:
                         wait = 2.0 * attempt
+
+                    # For user queries (small batches), do NOT freeze the HTTP request with long waits.
+                    # Fast-fail so dense search immediately hands off to instantaneous BM25 retrieval.
+                    if len(texts) <= 2 and wait > 3.0:
+                        logger.warning(
+                            f"Query embedding rate-limited (wait={wait:.1f}s). Fast failing to lexical BM25 fallback."
+                        )
+                        raise RuntimeError(f"Query embedding rate-limited: {exc}") from exc
+
                     logger.warning(
                         f"Gemini embed attempt {attempt} failed ({exc}), retrying in {wait:.1f}s..."
                     )

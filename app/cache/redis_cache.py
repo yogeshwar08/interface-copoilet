@@ -109,6 +109,17 @@ class CacheLayer:
             "expires_at": time.time() + effective_ttl,
         }
 
+    def delete(self, query: str, namespace: str = "copilot") -> None:
+        if not self.enabled:
+            return
+        key = self._compute_key(query, namespace)
+        if self._redis_client is not None:
+            try:
+                self._redis_client.delete(key)
+            except Exception as exc:
+                logger.warning(f"Error deleting key {key} from Redis: {exc}")
+        self._memory_cache.pop(key, None)
+
     def clear(self) -> None:
         if self._redis_client is not None:
             try:

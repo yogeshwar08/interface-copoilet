@@ -55,6 +55,27 @@ class QueryResponse(BaseModel):
     guardrail_status: str
 
 
+def _is_cacheable_response(route: Optional[str], response: Optional[str], sources: Optional[list]) -> bool:
+    """Only cache verified responses with content; never cache refusals or empty fallbacks."""
+    if not response or not response.strip():
+        return False
+    if route == "rag" and not sources:
+        return False
+    refusal_markers = [
+        "do not contain enough",
+        "not enough information",
+        "do not provide enough",
+        "not enough verified information",
+        "no verified information",
+        "knowledge base documents have been ingested",
+        "0 records",
+    ]
+    resp_lower = response.lower()
+    if any(marker in resp_lower for marker in refusal_markers):
+        return False
+    return True
+
+
 # ============================================================
 # HEALTH & READINESS ENDPOINT
 # ============================================================
@@ -148,6 +169,15 @@ async def query(request: QueryRequest):
     if not request.bypass_cache:
         cached_result = cache_service.get(query_text)
         if cached_result:
+            if not _is_cacheable_response(
+                cached_result.get("route"),
+                cached_result.get("response"),
+                cached_result.get("sources"),
+            ):
+                cache_service.delete(query_text)
+                cached_result = None
+
+        if cached_result:
             latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
             # Record fast cache hit trace
             trace = tracer.start_trace(query_text)
@@ -211,13 +241,20 @@ async def query(request: QueryRequest):
     trace.guardrail_status = result.get("guardrail_status", "passed")
     tracer.end_trace(trace)
 
-    # 6. Store in Cache (only if clean and non-error)
-    if result.get("guardrail_status") == "passed" and not result.get("route") == "blocked":
+    # 6. Store in Cache (only if verified, clean, non-refusal answer)
+    route_selected = result.get("route", "direct")
+    response_text = result.get("response", "")
+    sources_list = result.get("sources", [])
+    if (
+        result.get("guardrail_status") == "passed"
+        and route_selected != "blocked"
+        and _is_cacheable_response(route_selected, response_text, sources_list)
+    ):
         cache_data = {
-            "route": result.get("route"),
-            "response": result.get("response"),
+            "route": route_selected,
+            "response": response_text,
             "citations": result.get("citations", []),
-            "sources": result.get("sources", []),
+            "sources": sources_list,
             "sql": result.get("sql"),
             "tokens_used": total_tokens,
             "guardrail_status": "passed",
@@ -265,6 +302,15 @@ async def query_stream(request: QueryRequest):
             # Check cache first — instant return, no timeout risk
             if not request.bypass_cache:
                 cached_data = cache_service.get(query_text)
+                if cached_data:
+                    if not _is_cacheable_response(
+                        cached_data.get("route"),
+                        cached_data.get("response"),
+                        cached_data.get("sources"),
+                    ):
+                        cache_service.delete(query_text)
+                        cached_data = None
+
                 if cached_data:
                     yield f"event: route\ndata: {json.dumps({'route': cached_data.get('route'), 'cached': True})}\n\n"
                     full_response = cached_data.get("response", "")
@@ -358,15 +404,20 @@ async def query_stream(request: QueryRequest):
             trace.total_tokens = total_tokens
             tracer.end_trace(trace)
 
-            # Cache the clean result
-            if result.get("guardrail_status") == "passed" and route_selected != "blocked":
+            # Cache the clean result (only if verified, non-refusal answer)
+            sources_list = result.get("sources", [])
+            if (
+                result.get("guardrail_status") == "passed"
+                and route_selected != "blocked"
+                and _is_cacheable_response(route_selected, full_response, sources_list)
+            ):
                 cache_service.set(
                     query_text,
                     {
                         "route": route_selected,
                         "response": full_response,
                         "citations": result.get("citations", []),
-                        "sources": result.get("sources", []),
+                        "sources": sources_list,
                         "sql": result.get("sql"),
                         "tokens_used": total_tokens,
                         "guardrail_status": "passed",
