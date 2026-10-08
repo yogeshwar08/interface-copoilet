@@ -30,14 +30,17 @@ class CacheLayer:
     def _init_redis(self):
         try:
             import redis
+            redis_url = settings.redis_url
             # Render's managed Redis uses rediss:// (TLS) with a self-signed cert.
-            # ssl_cert_reqs=None disables cert verification so the connection succeeds.
-            is_tls = settings.redis_url.startswith("rediss://")
+            # Append ssl_cert_reqs=none to the URL — works across all redis-py versions
+            # without relying on kwarg support that varies by version.
+            if redis_url.startswith("rediss://") and "ssl_cert_reqs" not in redis_url:
+                sep = "&" if "?" in redis_url else "?"
+                redis_url = f"{redis_url}{sep}ssl_cert_reqs=none"
             client = redis.Redis.from_url(
-                settings.redis_url,
+                redis_url,
                 socket_connect_timeout=2.0,
                 decode_responses=True,
-                ssl_cert_reqs=None if is_tls else None,
             )
             client.ping()
             self._redis_client = client
