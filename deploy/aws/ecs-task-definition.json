@@ -23,6 +23,7 @@
         { "name": "GEMINI_MODEL_NAME", "value": "gemini-2.5-flash" },
         { "name": "QDRANT_HOST", "value": "qdrant.internal" },
         { "name": "QDRANT_PORT", "value": "6333" },
+        { "name": "QDRANT_PREFER_MEMORY", "value": "true" },
         { "name": "REDIS_URL", "value": "redis://elasticache-redis.internal:6379/0" },
         { "name": "REDIS_ENABLED", "value": "true" },
         { "name": "GUARDRAILS_ENABLED", "value": "true" },
@@ -51,10 +52,10 @@
       },
       "healthCheck": {
         "command": ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health || exit 1"],
-        "interval": 15,
-        "timeout": 5,
+        "interval": 30,
+        "timeout": 10,
         "retries": 3,
-        "startPeriod": 30
+        "startPeriod": 120
       }
     },
     {

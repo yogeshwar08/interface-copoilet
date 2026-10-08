@@ -29,7 +29,7 @@ spec:
             - name: GEMINI_MODEL_NAME
               value: "gemini-2.5-flash"
             - name: QDRANT_PREFER_MEMORY
-              value: "false"
+              value: "true"    # Auto-indexes data/raw/ PDFs at startup; no external Qdrant needed
             - name: REDIS_ENABLED
               value: "true"
             - name: GUARDRAILS_ENABLED
