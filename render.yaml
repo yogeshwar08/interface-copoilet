@@ -1,4 +1,4 @@
-﻿# ============================================================
+# ============================================================
 # Render Blueprint — Agentic Enterprise Knowledge Copilot
 # https://render.com/docs/blueprint-spec
 # ============================================================
@@ -92,4 +92,3 @@ databases:
     plan: free
     region: oregon
     databaseName: aegisdb
-    user: aegis_readonly
