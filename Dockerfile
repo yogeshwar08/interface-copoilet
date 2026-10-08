@@ -69,7 +69,6 @@ ENV PYTHONUNBUFFERED=1 \
     OPENBLAS_NUM_THREADS=1 \
     TORCH_NUM_THREADS=1 \
     PYTHONMALLOC=malloc \
-    QDRANT_PREFER_MEMORY=true \
     RERANKER_ENABLED=false \
     PORT=10000 \
     HF_HOME=/root/.cache/huggingface \
