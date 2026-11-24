@@ -25,6 +25,11 @@ services:
       - LANGSMITH_TRACING=${LANGSMITH_TRACING:-false}
       - LANGSMITH_API_KEY=${LANGSMITH_API_KEY:-}
       - GUARDRAILS_ENABLED=true
+    volumes:
+      - ./app:/app/app:ro
+      - ./static:/app/static:ro
+      - ./data:/app/data
+      - ./docker:/app/docker:ro
     depends_on:
       postgres:
         condition: service_healthy

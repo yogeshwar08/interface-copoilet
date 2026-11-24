@@ -242,6 +242,15 @@ def init_fallback_sqlite_if_needed():
             thread_id TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            applied_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        INSERT OR IGNORE INTO schema_migrations (version, name) VALUES
+        ('001_initial_schema', 'Initial enterprise tables and seed records');
+
         INSERT OR IGNORE INTO users (id, username, email, created_at) VALUES
         (1, 'alice_chen', 'alice.chen@enterprise.corp', '2024-01-15 08:30:00Z'),
         (2, 'bob_martin', 'bob.martin@enterprise.corp', '2024-02-20 09:45:00Z'),

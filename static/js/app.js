@@ -136,8 +136,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const comps = data.components || {};
 
       if (healthPostgres) {
-        const isPgOk = comps.database_postgresql === "connected";
-        healthPostgres.textContent = isPgOk ? "CONNECTED" : "OFFLINE";
+        const isPgOk = comps.database_postgresql === "connected" || comps.database_postgresql === "ready" || comps.database_postgresql === "online";
+        healthPostgres.textContent = isPgOk ? "ONLINE" : "OFFLINE";
         healthPostgres.className = `health-status-tag ${isPgOk ? "ok" : "fallback"}`;
       }
 
