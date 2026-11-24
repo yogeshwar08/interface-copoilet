@@ -15,7 +15,7 @@ services:
       - PORT=10000
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GEMINI_MODEL_NAME=gemini-2.5-flash
-      - DATABASE_URL=postgresql://aegis_readonly:aegis_readonly_password@postgres:5432/aegisdb
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-aegis_readonly}:${POSTGRES_PASSWORD:-aegis_readonly_password}@postgres:5432/${POSTGRES_DB:-aegisdb}
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
       - QDRANT_COLLECTION=enterprise_documents
@@ -51,23 +51,23 @@ services:
       - copilot-network
 
   # ============================================================
-  # Relational Database: PostgreSQL
+  # Relational Database: PostgreSQL (Locally Self-Hosted)
   # ============================================================
   postgres:
     image: postgres:16-alpine
     container_name: enterprise_copilot_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: aegisdb
-      POSTGRES_USER: aegis_readonly
-      POSTGRES_PASSWORD: aegis_readonly_password
+      POSTGRES_DB: ${POSTGRES_DB:-aegisdb}
+      POSTGRES_USER: ${POSTGRES_USER:-aegis_readonly}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aegis_readonly_password}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aegis_readonly -d aegisdb"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aegis_readonly} -d ${POSTGRES_DB:-aegisdb}"]
       interval: 5s
       timeout: 5s
       retries: 5

@@ -79,15 +79,3 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# Warn loudly if running in production with localhost DB/Redis (common Render misconfiguration)
-if settings.environment == "production":
-    if "localhost" in settings.database_url or "127.0.0.1" in settings.database_url:
-        logger.error(
-            "MISCONFIGURATION: DATABASE_URL still points to localhost in production! "
-            "Set DATABASE_URL from Render's managed PostgreSQL connection string."
-        )
-    if "localhost" in settings.redis_url or "127.0.0.1" in settings.redis_url:
-        logger.error(
-            "MISCONFIGURATION: REDIS_URL still points to localhost in production! "
-            "Set REDIS_URL from Render's managed Redis connection string."
-        )

@@ -47,10 +47,12 @@ services:
       - key: OPENWEATHERMAP_API_KEY
         sync: false
 
+      # Database Configuration
+      # Free Render PostgreSQL instances expire after 30 days.
+      # To connect to your self-hosted local PostgreSQL (via tunnel/VPS) or external DB,
+      # set DATABASE_URL in the Render dashboard. If unset, the app runs in hybrid RAG mode.
       - key: DATABASE_URL
-        fromDatabase:
-          name: copilot-postgres
-          property: connectionString
+        sync: false
 
       - key: QDRANT_URL
         sync: false         # Optional: set to a Qdrant Cloud URL for persistence across deploys
@@ -99,10 +101,12 @@ services:
     maxmemoryPolicy: allkeys-lru
 
 # ============================================================
-# Managed PostgreSQL
+# Managed PostgreSQL (Disabled - Migrated to Self-Hosted Local Docker)
+# Free Render PostgreSQL instances expire after 30 days.
+# To connect an external database, configure DATABASE_URL in the Render dashboard.
 # ============================================================
-databases:
-  - name: copilot-postgres
-    plan: free
-    region: oregon
-    databaseName: aegisdb
+# databases:
+#   - name: copilot-postgres
+#     plan: free
+#     region: oregon
+#     databaseName: aegisdb

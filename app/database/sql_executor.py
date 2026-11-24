@@ -28,6 +28,7 @@ ALLOWED_TABLES = {
     "customer_profiles",
     "documents",
     "approval_requests",
+    "schema_migrations",
 }
 
 

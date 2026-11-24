@@ -406,7 +406,13 @@ ENVIRONMENT=development
 GEMINI_API_KEY=your_gemini_api_key_here
 GEMINI_MODEL_NAME=gemini-2.5-flash
 
-DATABASE_URL=postgresql://aegis_readonly:aegis_readonly_password@localhost:5432/aegisdb
+# Self-Hosted Local PostgreSQL (via Docker)
+POSTGRES_DB=aegisdb
+POSTGRES_USER=aegis_readonly
+POSTGRES_PASSWORD=aegis_readonly_password
+POSTGRES_HOST=127.0.0.1
+POSTGRES_PORT=5432
+DATABASE_URL=postgresql://aegis_readonly:aegis_readonly_password@127.0.0.1:5432/aegisdb
 QDRANT_HOST=localhost
 QDRANT_PORT=6333
 QDRANT_PREFER_MEMORY=true   # Allows local testing without running external Qdrant
@@ -421,9 +427,19 @@ LANGSMITH_API_KEY=
 LANGSMITH_PROJECT=agentic-enterprise-copilot
 ```
 
-### 3. Run the Application
+### 3. Start Local PostgreSQL Database
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+# Start containerized PostgreSQL 16
+docker compose up -d postgres
+
+# Verify connectivity and enterprise tables
+python scripts/verify_db.py
+```
+> For complete instructions on database backups, restores, and data recovery, see [LOCAL_POSTGRESQL_SETUP.md](file:///c:/Users/yoges/OneDrive/Desktop/agentic-enterprise-copilot/LOCAL_POSTGRESQL_SETUP.md).
+
+### 4. Run the Application
+```bash
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 Interactive Swagger API documentation is available at: [http://localhost:8000/docs](http://localhost:8000/docs).  
 Interactive Web UI & Real-Time Telemetry Dashboard is available at: [http://localhost:8000/ui](http://localhost:8000/ui).

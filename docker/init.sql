@@ -42,6 +42,12 @@ CREATE TABLE IF NOT EXISTS approval_requests (
     thread_id VARCHAR(100)
 );
 
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    applied_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Seed initial enterprise records
 INSERT INTO users (username, email, created_at) VALUES
 ('alice_chen', 'alice.chen@enterprise.corp', '2024-01-15 08:30:00Z'),
@@ -70,3 +76,7 @@ INSERT INTO approval_requests (approval_id, tool, arguments, agent, status) VALU
 ('APP-REQ-902', 'external_api_export', '{"format": "csv", "batch_size": 5000}', 'data_export_tool', 'pending'),
 ('APP-REQ-903', 'elevate_user_privilege', '{"user_id": 4, "role": "admin"}', 'iam_agent', 'rejected')
 ON CONFLICT (approval_id) DO NOTHING;
+
+INSERT INTO schema_migrations (version, name) VALUES
+('001_initial_schema', 'Initial enterprise tables and seed records')
+ON CONFLICT (version) DO NOTHING;
